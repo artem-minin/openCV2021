@@ -12,13 +12,8 @@ Spatial detection network demo.
     Performs inference on RGB camera and retrieves spatial location coordinates: x,y,z relative to the center of depth map.
 '''
 
-# Get argument first 
-OpenCVCompetition = True 
-if OpenCVCompetition: 
-  path_str = 'models/class_model_mobilenet_v3_small_data3_class_weights_512x512_without_softmax_6shaves.blob' 
-else:
-  path_str = 'models/mobilenet-ssd_openvino_2021.2_6shave.blob'
-nnBlobPath = str((Path(__file__).parent / Path(path_str)).resolve().absolute())
+# Get argument first
+nnBlobPath = str((Path(__file__).parent / Path('models/mobilenet-ssd_openvino_2021.2_6shave.blob')).resolve().absolute())
 if len(sys.argv) > 1:
     nnBlobPath = sys.argv[1]
 
@@ -26,22 +21,15 @@ if not Path(nnBlobPath).exists():
     import sys
     raise FileNotFoundError(f'Required file/s not found, please run "{sys.executable} install_requirements.py"')
 
+# MobilenetSSD label texts
+labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
+            "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
 
 syncNN = True
 
 # Create pipeline
 pipeline = dai.Pipeline()
-if '512' in path_str:
-    nn_shape = 512
-    pipeline.setOpenVINOVersion(dai.OpenVINO.Version.VERSION_2021_3)
-    labelMap = ["Soil","Clover","Broadleaf","Grass"]
-
-else:
-    nn_shape = 300 
-    pipeline.setOpenVINOVersion(dai.OpenVINO.Version.VERSION_2021_2)
-    # MobilenetSSD label texts
-    labelMap = ["background", "aeroplane", "bicycle", "bird", "boat", "bottle", "bus", "car", "cat", "chair", "cow",
-            "diningtable", "dog", "horse", "motorbike", "person", "pottedplant", "sheep", "sofa", "train", "tvmonitor"]
+pipeline.setOpenVINOVersion(dai.OpenVINO.Version.VERSION_2021_2)
 
 # Define sources and outputs
 camRgb = pipeline.createColorCamera()
@@ -61,7 +49,7 @@ xoutBoundingBoxDepthMapping.setStreamName("boundingBoxDepthMapping")
 xoutDepth.setStreamName("depth")
 
 # Properties
-camRgb.setPreviewSize(nn_shape, nn_shape)
+camRgb.setPreviewSize(300, 300)
 camRgb.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
 camRgb.setInterleaved(False)
 camRgb.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
@@ -75,7 +63,7 @@ monoRight.setBoardSocket(dai.CameraBoardSocket.RIGHT)
 stereo.setConfidenceThreshold(255)
 
 spatialDetectionNetwork.setBlobPath(nnBlobPath)
-spatialDetectionNetwork.setConfidenceThreshold(0.01)#was .5
+spatialDetectionNetwork.setConfidenceThreshold(0.5)
 spatialDetectionNetwork.input.setBlocking(False)
 spatialDetectionNetwork.setBoundingBoxScaleFactor(0.5)
 spatialDetectionNetwork.setDepthLowerThreshold(100)
@@ -130,7 +118,6 @@ with dai.Device(pipeline) as device:
         depthFrameColor = cv2.applyColorMap(depthFrameColor, cv2.COLORMAP_HOT)
 
         detections = inDet.detections
-        #print("len of detections: ", len(detections))
         if len(detections) != 0:
             boundingBoxMapping = xoutBoundingBoxDepthMapping.get()
             roiDatas = boundingBoxMapping.getConfigData()
